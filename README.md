@@ -22,10 +22,10 @@ I would like to give credits to [Hao Dong](https://github.com/zsdonghao/tensorla
 I have included two files. 
 
 1. cifar_wide_resnet_tl.py
-- This allows you to run each iteration manually with an external call. 
-- It illustrates how TensorLayer allows for more complex use.
-- It runs for 10 iterations, you can easily increase the number of iterations. 
+	- This allows you to run each iteration manually with an external call. 
+	- It illustrates how TensorLayer allows for more complex use.
+	- It runs for 10 iterations, you can easily increase the number of iterations. 
 2. cifar_wide_resnet_keras.py
-- This is a similar implementation with Keras.
-- However extending this further is challenging.
+	- This is a similar implementation with Keras.
+	- However extending this further is challenging.
 

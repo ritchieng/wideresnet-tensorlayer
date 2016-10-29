@@ -1,7 +1,5 @@
 # Wide ResNet implemented with TensorLayer
 
-## WIP Note
-This repository is still a work in progress (WIP). Until this statement has been removed, the code would not work properly. Please bear with me.
 
 ## Original Paper's Abstract
 The paper on Wide Residual Networks (BMVC 2016) [http://arxiv.org/abs/1605.07146](http://arxiv.org/abs/1605.07146) is by Sergey Zagoruyko and Nikos Komodakis.
@@ -23,6 +21,11 @@ I would like to give credits to [Hao Dong](https://github.com/zsdonghao/tensorla
 ## Files
 I have included two files. 
 
-1. One file allows you to run each iteration manually with an external call. It illustrates how TensorLayer allows for more complex use. 
-2. And another file where you simply just run normal iterations automatically.
+1. cifar_wide_resnet_tl.py
+- This allows you to run each iteration manually with an external call. 
+- It illustrates how TensorLayer allows for more complex use.
+- It runs for 10 iterations, you can easily increase the number of iterations. 
+2. cifar_wide_resnet_keras.py
+- This is a similar implementation with Keras.
+- However extending this further is challenging.
 

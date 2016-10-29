@@ -64,7 +64,10 @@ class CNNEnv:
         self.first = first
         if self.first is True:
             self.sess.close()
-        self.sess = tf.InteractiveSession()
+
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        self.sess = tf.InteractiveSession(config=config)
 
     def step(self):
 
@@ -75,12 +78,9 @@ class CNNEnv:
             pattern = [[0, 0], [0, 0], [0, 0], [pad - pad // 2, pad // 2]]
             return tf.pad(x, pattern)
 
-        def residual_block(x, count, nb_filters=16, subsample_factor=1, reuse=True):
+        def residual_block(x, count, nb_filters=16, subsample_factor=1):
+            prev_nb_channels = x.outputs.get_shape().as_list()[3]
 
-            prev_nb_channels = x.get_shape()[3]
-            # prev_nb_channels = 64
-            # shape = x.get_shape()
-            # prev_nb_channels = tuple([i.__int__() for i in shape])
             if subsample_factor > 1:
                 subsample = [1, subsample_factor, subsample_factor, 1]
                 # shortcut: subsample + zero-pad channel dim
@@ -102,7 +102,7 @@ class CNNEnv:
                 shortcut = tl.layers.LambdaLayer(
                     shortcut,
                     zero_pad_channels,
-                    arguments={'pad': nb_filters - prev_nb_channels},
+                    kwargs={'pad': nb_filters - prev_nb_channels},
                     name=name_lambda)
 
             name_norm = 'norm' + str(count)
@@ -115,7 +115,7 @@ class CNNEnv:
             name_conv = 'conv_layer' + str(count)
             y = tl.layers.Conv2dLayer(y,
                                       act=tf.nn.relu,
-                                      shape=[3, 3, 3, nb_filters],
+                                      shape=[3, 3, prev_nb_channels, nb_filters],
                                       strides=subsample,
                                       padding='SAME',
                                       name=name_conv)
@@ -127,36 +127,20 @@ class CNNEnv:
                                          is_train=True,
                                          name=name_norm_2)
 
+            prev_input_channels = y.outputs.get_shape().as_list()[3]
             name_conv_2 = 'conv_layer_second' + str(count)
             y = tl.layers.Conv2dLayer(y,
                                       act=tf.nn.relu,
-                                      shape=[3, 3, 3, nb_filters],
+                                      shape=[3, 3, prev_input_channels, nb_filters],
                                       strides=[1, 1, 1, 1],
                                       padding='SAME',
                                       name=name_conv_2)
 
             name_merge = 'merge' + str(count)
-            out = tf.layers.ElementwiseLayer([y, shortcut],
+            out = tl.layers.ElementwiseLayer([y, shortcut],
                                              combine_fn=tf.add,
                                              name=name_merge)
 
-            class LambdaLayer(Layer):
-                def __init__(
-                        self,
-                        layer=None,
-                        fn=None,
-                        arguments=None,
-                        name='lambda_layer',
-                ):
-                    Layer.__init__(self, name=name)
-                    self.inputs = layer.outputs
-                    with tf.variable_scope(name) as vs:
-                        self.outputs = fn(self.inputs, **arguments)
-
-                    self.all_layers = list(layer.all_layers)
-                    self.all_params = list(layer.all_params)
-                    self.all_drop = dict(layer.all_drop)
-                    self.all_layers.extend([self.outputs])
 
             return out
 
@@ -185,7 +169,7 @@ class CNNEnv:
             else:
                 subsample_factor = 1
             count = i + self.blocks_per_group
-            x = residual_block(x, i, nb_filters=nb_filters, subsample_factor=subsample_factor)
+            x = residual_block(x, count, nb_filters=nb_filters, subsample_factor=subsample_factor)
 
         for i in range(0, self.blocks_per_group):
             nb_filters = 64 * self.widening_factor
@@ -235,23 +219,9 @@ class CNNEnv:
             feed_dict = {img: batch[0], labels: batch[1], learning_rate: 0.01}
             feed_dict.update(x.all_drop)
             _, l, ac = self.sess.run([train_op, cost, acc], feed_dict=feed_dict)
+            print('loss', l)
+            print('acc', ac)
 
-        '''
-        with sess.as_default():
-
-            for i in range(10):
-
-                batch = self.next_batch(self.batch_num)
-                _, l = sess.run([optimizer, loss],
-                                feed_dict={img: batch[0], labels: batch[1]})
-                print(l)
-        '''
-
-        '''
-        with sess.as_default():
-            acc = acc_value.eval(feed_dict={img: self.x_test, labels: self.y_test})
-            print(acc)
-        '''
 
 a = CNNEnv()
 a.reset(first=False)

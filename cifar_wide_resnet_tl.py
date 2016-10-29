@@ -75,19 +75,22 @@ class CNNEnv:
             pattern = [[0, 0], [0, 0], [0, 0], [pad - pad // 2, pad // 2]]
             return tf.pad(x, pattern)
 
-        def residual_block(x, nb_filters=16, subsample_factor=1):
+        def residual_block(x, count, nb_filters=16, subsample_factor=1, reuse=True):
+
             prev_nb_channels = x.get_shape()[3]
+            # prev_nb_channels = 64
             # shape = x.get_shape()
             # prev_nb_channels = tuple([i.__int__() for i in shape])
-
             if subsample_factor > 1:
                 subsample = [1, subsample_factor, subsample_factor, 1]
                 # shortcut: subsample + zero-pad channel dim
+                name_pool = 'pool_layer' + str(count)
                 shortcut = tl.layers.PoolLayer(x,
                                                ksize=subsample,
                                                strides=subsample,
                                                padding='VALID',
-                                               pool=tf.nn.avg_pool)
+                                               pool=tf.nn.avg_pool,
+                                               name=name_pool)
 
             else:
                 subsample = [1, 1, 1, 1]
@@ -95,40 +98,60 @@ class CNNEnv:
                 shortcut = x
 
             if nb_filters > prev_nb_channels:
-                shortcut = tl.layers.LambdaLayer(shortcut, zero_pad_channels, arguments={'pad': nb_filters - prev_nb_channels})
+                name_lambda = 'lambda_layer' + str(count)
+                shortcut = tl.layers.LambdaLayer(
+                    shortcut,
+                    zero_pad_channels,
+                    arguments={'pad': nb_filters - prev_nb_channels},
+                    name=name_lambda)
 
-            y = tl.layers.BatchNormLayer(x, decay=0.999, epsilon=1e-05, is_train=True)
+            name_norm = 'norm' + str(count)
+            y = tl.layers.BatchNormLayer(x,
+                                         decay=0.999,
+                                         epsilon=1e-05,
+                                         is_train=True,
+                                         name=name_norm)
+
+            name_conv = 'conv_layer' + str(count)
             y = tl.layers.Conv2dLayer(y,
                                       act=tf.nn.relu,
                                       shape=[3, 3, 3, nb_filters],
                                       strides=subsample,
-                                      padding='SAME')
+                                      padding='SAME',
+                                      name=name_conv)
 
-            y = tl.layers.BatchNormLayer(y, decay=0.999, epsilon=1e-05,
-                                         is_train=True)
+            name_norm_2 = 'norm_second' + str(count)
+            y = tl.layers.BatchNormLayer(y,
+                                         decay=0.999,
+                                         epsilon=1e-05,
+                                         is_train=True,
+                                         name=name_norm_2)
 
+            name_conv_2 = 'conv_layer_second' + str(count)
             y = tl.layers.Conv2dLayer(y,
                                       act=tf.nn.relu,
                                       shape=[3, 3, 3, nb_filters],
                                       strides=[1, 1, 1, 1],
-                                      padding='SAME')
+                                      padding='SAME',
+                                      name=name_conv_2)
 
-            out = tf.layers.ElementwiseLayer([y, shortcut], combine_fn=tf.add)
+            name_merge = 'merge' + str(count)
+            out = tf.layers.ElementwiseLayer([y, shortcut],
+                                             combine_fn=tf.add,
+                                             name=name_merge)
 
             class LambdaLayer(Layer):
                 def __init__(
                         self,
                         layer=None,
                         fn=None,
+                        arguments=None,
                         name='lambda_layer',
                 ):
                     Layer.__init__(self, name=name)
                     self.inputs = layer.outputs
-
-                    print(
-                    "  tensorlayer:Instantiate LambdaLayer  %s" % self.name)
                     with tf.variable_scope(name) as vs:
-                        self.outputs = fn(self.inputs)
+                        self.outputs = fn(self.inputs, **arguments)
 
                     self.all_layers = list(layer.all_layers)
                     self.all_params = list(layer.all_params)
@@ -142,12 +165,18 @@ class CNNEnv:
         img = tf.placeholder(tf.float32, shape=[self.batch_num, 32, 32, 3])
         labels = tf.placeholder(tf.int32, shape=[self.batch_num, ])
 
-        x = tl.layers.InputLayer(img)
-        x = tl.layers.Conv2dLayer(x, act=tf.nn.relu, shape=[3, 3, 3, 16], strides=[1, 1, 1, 1], padding='SAME')
+        x = tl.layers.InputLayer(img, name='input_layer')
+        x = tl.layers.Conv2dLayer(x,
+                                  act=tf.nn.relu,
+                                  shape=[3, 3, 3, 16],
+                                  strides=[1, 1, 1, 1],
+                                  padding='SAME',
+                                  name='cnn_layer_first')
 
         for i in range(0, self.blocks_per_group):
             nb_filters = 16 * self.widening_factor
-            x = residual_block(x, nb_filters=nb_filters, subsample_factor=1)
+            count = i
+            x = residual_block(x, count, nb_filters=nb_filters, subsample_factor=1)
 
         for i in range(0, self.blocks_per_group):
             nb_filters = 32 * self.widening_factor
@@ -155,7 +184,8 @@ class CNNEnv:
                 subsample_factor = 2
             else:
                 subsample_factor = 1
-            x = residual_block(x, nb_filters=nb_filters, subsample_factor=subsample_factor)
+            count = i + self.blocks_per_group
+            x = residual_block(x, i, nb_filters=nb_filters, subsample_factor=subsample_factor)
 
         for i in range(0, self.blocks_per_group):
             nb_filters = 64 * self.widening_factor
@@ -163,19 +193,28 @@ class CNNEnv:
                 subsample_factor = 2
             else:
                 subsample_factor = 1
-            x = residual_block(x, nb_filters=nb_filters, subsample_factor=subsample_factor)
+            count = i + 2*self.blocks_per_group
+            x = residual_block(x, count, nb_filters=nb_filters, subsample_factor=subsample_factor)
 
-        x = tl.layers.BatchNormLayer(x, decay=0.999, epsilon=1e-05, is_train=True)
+        x = tl.layers.BatchNormLayer(x,
+                                     decay=0.999,
+                                     epsilon=1e-05,
+                                     is_train=True,
+                                     name='norm_last')
 
         x = tl.layers.PoolLayer(x,
                                 ksize=[1, 8, 8, 1],
                                 strides=[1, 8, 8, 1],
                                 padding='VALID',
-                                pool=tf.nn.avg_pool)
+                                pool=tf.nn.avg_pool,
+                                name='pool_last')
 
-        x = tl.layers.FlattenLayer(x)
+        x = tl.layers.FlattenLayer(x, name='flatten')
 
-        x = tl.layers.DenseLayer(x, n_units=self.nb_classes, act=tf.identity)
+        x = tl.layers.DenseLayer(x,
+                                 n_units=self.nb_classes,
+                                 act=tf.identity,
+                                 name='fc')
 
         output = x.outputs
 

@@ -1,6 +1,5 @@
 # Wide ResNet implemented with TensorLayer
 
-
 ## Original Paper's Abstract
 The paper on Wide Residual Networks (BMVC 2016) [http://arxiv.org/abs/1605.07146](http://arxiv.org/abs/1605.07146) is by Sergey Zagoruyko and Nikos Komodakis.
 
@@ -13,7 +12,13 @@ The paper on Wide Residual Networks (BMVC 2016) [http://arxiv.org/abs/1605.07146
 The performance over original ResNets is substantial and this should be used over the original ResNets.
 
 ## Original Implementation in Lua and Torch
-[Repository](https://github.com/szagoruyko/wide-residual-networks)
+[Lua and Torch Repository Link](https://github.com/szagoruyko/wide-residual-networks)
+
+## Installation Instructions for TensorLayer
+```
+[stable version] pip install tensorlayer
+[master version] pip install git+https://github.com/zsdonghao/tensorlayer.git
+```
 
 ## TensorLayer Implementation Credits
 I would like to give credits to [Hao Dong](https://github.com/zsdonghao/tensorlayer) for helping out with this new package as I was originally unfamiliar with the API. You are able to get up to speed quickly if you have experience with Keras. 

@@ -102,7 +102,7 @@ class CNNEnv:
                 shortcut = tl.layers.LambdaLayer(
                     shortcut,
                     zero_pad_channels,
-                    kwargs={'pad': nb_filters - prev_nb_channels},
+                    fn_args={'pad': nb_filters - prev_nb_channels},
                     name=name_lambda)
 
             name_norm = 'norm' + str(count)
